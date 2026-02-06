@@ -2,8 +2,6 @@ const chat = document.getElementById("chat");
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("send");
 
-loadHistory();
-
 sendBtn.onclick = send;
 input.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) {
@@ -19,37 +17,29 @@ function addMsg(text, cls) {
   typeText(div, text);
 }
 
-function send() {
+async function send() {
   const text = input.value.trim();
   if (!text) return;
 
-  save("user", text);
   addMsg(text, "user");
   input.value = "";
 
-  setTimeout(() => {
-    const reply = brain.think(text);
-    save("bot", reply);
-    addMsg(reply, "bot");
-  }, 600);
+  const thinking = document.createElement("div");
+  thinking.className = "msg bot";
+  thinking.textContent = "Sto pensando… 🤔";
+  chat.appendChild(thinking);
+
+  const reply = await brain.reply(text);
+
+  chat.removeChild(thinking);
+  addMsg(reply, "bot");
 }
 
 function typeText(el, text) {
   let i = 0;
-  const interval = setInterval(() => {
+  const timer = setInterval(() => {
     el.textContent += text[i++];
     chat.scrollTop = chat.scrollHeight;
-    if (i >= text.length) clearInterval(interval);
-  }, 20);
-}
-
-function save(role, text) {
-  const history = JSON.parse(localStorage.getItem("chat")) || [];
-  history.push({ role, text });
-  localStorage.setItem("chat", JSON.stringify(history));
-}
-
-function loadHistory() {
-  const history = JSON.parse(localStorage.getItem("chat")) || [];
-  history.forEach(m => addMsg(m.text, m.role));
+    if (i >= text.length) clearInterval(timer);
+  }, 15);
 }
