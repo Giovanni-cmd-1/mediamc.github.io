@@ -7,13 +7,25 @@
 </head>
 <body>
 
-<header>💬 My ChatGPT</header>
+<div id="app">
 
-<div id="chat"></div>
+  <!-- SIDEBAR -->
+  <aside>
+    <button id="newChat">＋ Nuova chat</button>
+    <input id="searchChat" placeholder="Cerca chat…" />
+    <div id="chatList"></div>
+  </aside>
 
-<div id="input-area">
-  <textarea id="input" placeholder="Scrivi un messaggio..."></textarea>
-  <button id="send">Invia</button>
+  <!-- CHAT -->
+  <main>
+    <div id="chat"></div>
+
+    <div id="input-area">
+      <textarea id="input" placeholder="Scrivi un messaggio…"></textarea>
+      <button id="send">Invia</button>
+    </div>
+  </main>
+
 </div>
 
 <script src="brain.js"></script>
