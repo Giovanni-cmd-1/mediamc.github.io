@@ -1,92 +1,114 @@
 const brain = {
+  // stato della conversazione
+  waitingForSummary: false,
+
   async reply(input) {
-    const text = input.toLowerCase();
+    const cleaned = this.clean(input);
 
-    // 1️⃣ SALUTI
-    if (this.match(text, [
-      "ciao", "hey", "ehi", "salve", "buongiorno", "buonasera"
-    ])) {
-      return "Ciao! 👋 Dimmi pure cosa vuoi fare: ricerca, riassunto o esercizi 😄";
+    // Se stavamo aspettando il testo per il riassunto
+    if (this.waitingForSummary) {
+      this.waitingForSummary = false;
+      if (!cleaned) return "Non ho ricevuto testo da riassumere 😕";
+      return this.summarize(cleaned);
     }
 
-    // 2️⃣ ESERCIZI
-    if (this.match(text, [
-      "esercizi", "fammi esercizi", "crea esercizi",
-      "allenamento", "test", "quiz"
-    ])) {
-      const topic = this.extractTopic(input);
-      return this.makeExercises(topic);
-    }
+    const intent = this.detectIntent(cleaned);
+    const topic  = this.extractTopic(cleaned);
 
-    // 3️⃣ RIASSUNTO
-    if (this.match(text, [
-      "riassunto", "breve", "in poche parole",
-      "sintesi", "riassumere"
-    ])) {
-      const topic = this.extractTopic(input);
-      const full = await wikipediaSearch(topic);
-      return this.summarize(full);
-    }
+    switch (intent) {
+      case "greeting":
+        return this.greet();
 
-    // 4️⃣ RICERCA / SPIEGAZIONE
-    const topic = this.extractTopic(input);
-    if (topic) {
-      return await wikipediaSearch(topic);
-    }
+      case "summary":
+        // ora aspettiamo il testo
+        this.waitingForSummary = true;
+        return "Sì certo! Mandami pure il testo da riassumere 📄";
 
-    // fallback
-    return "Non sono sicuro di aver capito 🤔 Puoi riscriverlo?";
+      case "exercise":
+        return this.handleExercise(topic);
+
+      case "search":
+        return await this.handleSearch(topic);
+
+      default:
+        return "Ti ascolto 🙂 dimmi meglio cosa vuoi fare.";
+    }
   },
 
-  match(text, words) {
-    return words.some(w => text.includes(w));
+  clean(text) {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\sàèìòù]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  },
+
+  detectIntent(text) {
+    const intents = {
+      greeting: ["ciao","hey","ehi","salve","buongiorno","buonasera"],
+      summary: ["riassunto","breve","sintesi","in poche parole","riassumere","riassumi"],
+      exercise: ["esercizi","fammi esercizi","allenamento","quiz","test","verifica"]
+    };
+
+    for (const intent in intents) {
+      if (intents[intent].some(w => text.includes(w))) return intent;
+    }
+
+    return "search";
   },
 
   extractTopic(text) {
-    const stopWords = [
-      "ciao","hey","ehi","salve","fammi","una","un","dei","degli",
-      "riassunto","ricerca","esercizi","sulla","sul","su","mi","puoi",
-      "per","favore","voglio","sapere","spiegami","parlami","che",
-      "cos'è","cos e","breve","in","poche","parole","crea","test","quiz"
+    const stop = [
+      "fammi","una","un","dei","degli","della","del",
+      "riassunto","ricerca","esercizi","sulla","sul","su",
+      "mi","puoi","per","favore","voglio","sapere",
+      "spiegami","parlami","che","cosè","cose",
+      "breve","in","poche","parole","crea","test","quiz"
     ];
 
-    text = text.toLowerCase();
-    stopWords.forEach(w => text = text.replaceAll(w, ""));
-    text = text.replace(/[^\w\s]/g, "").trim();
+    let topic = text;
+    stop.forEach(w => topic = topic.replaceAll(w, ""));
+    topic = topic.trim();
+    return topic.length > 2 ? topic : null;
+  },
 
-    return text.length > 2 ? text : null;
+  greet() {
+    return "Ciao! 👋 Posso fare ricerche, riassunti o esercizi. Dimmi tu 😄";
+  },
+
+  async handleSearch(topic) {
+    if (!topic) return "Su cosa vuoi informazioni?";
+    return await wikipediaSearch(topic);
+  },
+
+  handleExercise(topic) {
+    if (!topic) topic = "argomento generale";
+    return `✏️ **Esercizi su ${topic}**\n
+1) Spiega cos'è ${topic}.  
+2) Elenca 3 punti chiave.  
+3) Perché è importante?  
+4) Fai un esempio pratico.`;
   },
 
   summarize(text) {
-    const sentences = text.split(". ");
+    if (!text) return "Non c'è nulla da riassumere 😕";
+    const sentences = text.split(". ").filter(s => s.length > 5);
     return "📝 **Riassunto**\n\n" +
       sentences.slice(0, 3).join(". ") + ".";
-  },
-
-  makeExercises(topic) {
-    if (!topic) topic = "argomento generale";
-
-    return `✏️ **Esercizi su ${topic}**
-
-1️⃣ Spiega con parole tue cos'è ${topic}.  
-2️⃣ Elenca 3 caratteristiche principali di ${topic}.  
-3️⃣ Perché ${topic} è importante?  
-4️⃣ Scrivi un esempio pratico legato a ${topic}.  
-
-Quando vuoi, puoi mandarmi le risposte 😉`;
   }
 };
 
-// 🔍 Wikipedia
+// 🌍 WIKIPEDIA (rimane opzionale)
 async function wikipediaSearch(topic) {
+  if (!topic) return null;
   try {
     const res = await fetch(
       `https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`
     );
+    if (!res.ok) return null;
     const data = await res.json();
-
-    return `📚 **${data.title}**\n\n${data.extract}`;
+    return data.extract || null;
   } catch {
-    return "Non ho trovato informazioni affidabili 😕";
+    return null;
   }
 }
